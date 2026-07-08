@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lights Out — Solver & Trainer</title>
+<style>
+  :root{
+    --bg: #0b0e13;
+    --panel: #141a23;
+    --panel-2: #1a212c;
+    --off-cell: #1e2733;
+    --off-cell-edge: #2a3542;
+    --on-glow: #ffb545;
+    --on-core: #3a2a12;
+    --cyan: #4dd8ff;
+    --text: #dfe6ee;
+    --text-dim: #8592a3;
+    --danger: #ff6b6b;
+    --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at top left, #131a24 0%, transparent 55%),
+      radial-gradient(ellipse at bottom right, #10161f 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    display:flex;
+    justify-content:center;
+    padding:32px 16px 60px;
+  }
+  .wrap{width:100%; max-width:960px;}
+  header{margin-bottom:28px;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.16em;
+    color:var(--cyan);
+    text-transform:uppercase;
+    margin:0 0 8px;
+  }
+  h1{
+    margin:0 0 6px;
+    font-size:28px;
+    font-weight:650;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--text-dim); font-size:14.5px; line-height:1.5; margin:0; max-width:560px;}
+
+  .layout{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) 300px;
+    gap:24px;
+    margin-top:28px;
+    align-items:start;
+  }
+  @media (max-width: 760px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .board-card{
+    background:var(--panel);
+    border:1px solid #232c39;
+    border-radius:16px;
+    padding:22px;
+  }
+
+  .tabs{
+    display:flex;
+    gap:6px;
+    background:var(--panel-2);
+    padding:4px;
+    border-radius:10px;
+    margin-bottom:18px;
+    width:fit-content;
+  }
+  .tab{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.03em;
+    padding:8px 14px;
+    border-radius:7px;
+    color:var(--text-dim);
+    cursor:pointer;
+    user-select:none;
+    transition:all .15s ease;
+    background:transparent;
+    border:none;
+  }
+  .tab.active{background:#26313f; color:var(--text);}
+
+  .grid-holder{display:flex; justify-content:center; padding:8px 0 4px;}
+  .grid{
+    display:grid;
+    gap:7px;
+    width:100%;
+  }
+  .cell{
+    aspect-ratio:1/1;
+    border-radius:9px;
+    background:var(--off-cell);
+    border:1px solid var(--off-cell-edge);
+    cursor:pointer;
+    position:relative;
+    transition: background .16s ease, box-shadow .16s ease, transform .08s ease;
+  }
+  .cell:active{transform:scale(0.94);}
+  .cell.on{
+    background: radial-gradient(circle at 35% 30%, #ffd98a, var(--on-glow) 55%, #c97f1f 100%);
+    box-shadow: 0 0 18px 2px rgba(255,181,69,0.55), inset 0 0 10px rgba(255,255,255,0.25);
+    border-color: #ffcf82;
+  }
+  .cell.suggest::after{
+    content:'';
+    position:absolute;
+    inset:-6px;
+    border-radius:13px;
+    border:2px solid var(--cyan);
+    animation: pulse 1.1s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:0.35; transform:scale(1);}
+    50%{opacity:1; transform:scale(1.04);}
+  }
+  .coord{
+    position:absolute;
+    bottom:3px; right:5px;
+    font-family:var(--mono);
+    font-size:8.5px;
+    color:rgba(255,255,255,0.28);
+  }
+  .cell.on .coord{color:rgba(30,20,5,0.5);}
+
+  .legend{
+    display:flex; gap:18px; margin-top:16px;
+    font-size:12px; color:var(--text-dim); font-family:var(--mono);
+    flex-wrap:wrap;
+  }
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .swatch{width:11px; height:11px; border-radius:3px; display:inline-block;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid #232c39;
+    border-radius:16px;
+    padding:20px;
+    display:flex; flex-direction:column; gap:16px;
+  }
+  .panel h3{
+    margin:0; font-size:12px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--text-dim); font-family:var(--mono); font-weight:600;
+  }
+  button.action{
+    font-family:var(--sans);
+    font-size:14px; font-weight:600;
+    padding:11px 14px;
+    border-radius:9px;
+    border:1px solid transparent;
+    cursor:pointer;
+    transition: filter .12s ease, transform .06s ease;
+  }
+  button.action:active{transform:scale(0.98);}
+  .btn-primary{background:var(--cyan); color:#04202b;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-secondary{background:#232c39; color:var(--text); border-color:#2f3b4a;}
+  .btn-secondary:hover{background:#28323f;}
+  .btn-row{display:flex; gap:8px;}
+  .btn-row button{flex:1;}
+
+  .size-row{display:flex; gap:10px; margin-top:10px;}
+  .size-field{flex:1; display:flex; flex-direction:column; gap:5px;}
+  .size-field label{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:0.06em;
+    text-transform:uppercase; color:var(--text-dim);
+  }
+  .size-field input{
+    background:var(--panel-2);
+    border:1px solid #2a3542;
+    color:var(--text);
+    border-radius:8px;
+    padding:9px 10px;
+    font-family:var(--mono);
+    font-size:14px;
+    width:100%;
+  }
+  .size-field input:focus{outline:none; border-color:var(--cyan);}
+  .size-hint{font-size:11px; color:var(--text-dim); margin-top:2px;}
+
+  .preset-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .chip{
+    font-family:var(--mono);
+    font-size:11.5px;
+    padding:6px 11px;
+    border-radius:20px;
+    background:var(--panel-2);
+    border:1px solid #2a3542;
+    color:var(--text-dim);
+    cursor:pointer;
+    transition: all .12s ease;
+  }
+  .chip:hover{background:#232c39; color:var(--text); border-color:#3a4757;}
+
+  .status{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.6;
+    padding:10px 12px;
+    background:var(--panel-2);
+    border-radius:9px;
+    border:1px solid #232c39;
+  }
+  .status b{color:var(--text); font-weight:600;}
+  .status.err{color:var(--danger);}
+
+  .step-display{
+    text-align:center;
+    padding:16px 10px;
+    background:var(--panel-2);
+    border-radius:10px;
+    border:1px solid #232c39;
+  }
+  .step-count{font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:6px;}
+  .step-coord{font-size:22px; font-weight:700; letter-spacing:0.02em;}
+  .step-coord .row-r-off{color:var(--text-dim); font-weight:500; font-size:14px;}
+
+  .steps-list{
+    max-height:220px;
+    overflow-y:auto;
+    font-family:var(--mono);
+    font-size:12px;
+    border-radius:9px;
+    border:1px solid #232c39;
+  }
+  .steps-list div{
+    padding:7px 10px;
+    display:flex; justify-content:space-between;
+    color:var(--text-dim);
+    border-bottom:1px solid #1c2531;
+  }
+  .steps-list div:last-child{border-bottom:none;}
+  .steps-list div.done{color:#4b5866; text-decoration:line-through;}
+  .steps-list div.current{color:var(--cyan); background:#182430; font-weight:600;}
+
+  footer.note{
+    margin-top:22px;
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.6;
+  }
+  footer.note code{
+    font-family:var(--mono);
+    background:var(--panel-2);
+    padding:1px 5px;
+    border-radius:4px;
+    font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">up to 15×15 · plus-toggle</p>
+    <h1>Lights Out — Solver & Trainer</h1>
+    <p class="sub">Pick a board size, mark the lit cells in Edit mode, hit Solve for the exact click order, then switch to Play mode to practice it with a live guide.</p>
+  </header>
+
+  <div class="layout">
+    <div class="board-card">
+      <div class="tabs">
+        <button class="tab active" id="tabEdit" onclick="setMode('edit')">Edit Puzzle</button>
+        <button class="tab" id="tabPlay" onclick="setMode('play')">Play / Practice</button>
+      </div>
+
+      <div class="grid-holder">
+        <div class="grid" id="grid"></div>
+      </div>
+
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--off-cell); border:1px solid var(--off-cell-edge);"></span>Off</span>
+        <span><span class="swatch" style="background:var(--on-glow);"></span>Lit</span>
+        <span><span class="swatch" style="border:2px solid var(--cyan); background:transparent;"></span>Next click to press</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div>
+        <h3>Board Size</h3>
+        <div class="size-row">
+          <div class="size-field">
+            <label for="rowsInput">Rows</label>
+            <input type="number" id="rowsInput" min="2" max="15" value="6" onkeydown="if(event.key==='Enter')applySize()">
+          </div>
+          <div class="size-field">
+            <label for="colsInput">Cols</label>
+            <input type="number" id="colsInput" min="2" max="15" value="6" onkeydown="if(event.key==='Enter')applySize()">
+          </div>
+        </div>
+        <div class="size-hint">2–15 per side, any rectangle works</div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="action btn-secondary" onclick="applySize()">New Board</button>
+        </div>
+        <div class="preset-row">
+          <button class="chip" onclick="setBoardSize(5,5)">5×5</button>
+          <button class="chip" onclick="setBoardSize(5,6)">5×6</button>
+          <button class="chip" onclick="setBoardSize(6,6)">6×6</button>
+          <button class="chip" onclick="setBoardSize(8,8)">8×8</button>
+          <button class="chip" onclick="setBoardSize(10,10)">10×10</button>
+        </div>
+      </div>
+
+      <div>
+        <h3>Solve</h3>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="action btn-primary" onclick="solvePuzzle()">Solve</button>
+          <button class="action btn-secondary" onclick="clearBoard()">Clear board</button>
+        </div>
+      </div>
+
+      <div id="statusBox" class="status">Set a board size, mark the lit cells, then hit Solve.</div>
+
+      <div id="guideSection" style="display:none;">
+        <h3 style="margin-bottom:10px;">Step Guide</h3>
+        <div class="step-display">
+          <div class="step-count" id="stepCount">Step 0 / 0</div>
+          <div class="step-coord" id="stepCoord">—</div>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="action btn-secondary" onclick="prevStep()">◀ Prev</button>
+          <button class="action btn-primary" onclick="nextStep()">Apply & Next ▶</button>
+        </div>
+        <h3 style="margin:14px 0 8px;">Full Sequence</h3>
+        <div class="steps-list" id="stepsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">
+    Mechanic: pressing a cell toggles itself plus its up/down/left/right neighbors (no diagonals, no wraparound). Boards from 2×2 up to 15×15, including non-square ones like 5×6. Some board sizes/patterns have more than one valid solution — this shows one valid solve, not always the fewest possible clicks.
+  </footer>
+</div>
+
+<script>
+const MIN_DIM = 2;
+const MAX_DIM = 15;
+
+let ROWS = 6, COLS = 6;
+let mode = 'edit'; // 'edit' | 'play'
+let board = makeEmptyBoard(ROWS, COLS);
+let solution = null;       // ROWS x COLS array of 0/1 (press or not)
+let stepOrder = [];        // array of {r,c} in press order
+let stepIndex = 0;         // how many steps applied so far
+
+function makeEmptyBoard(rows, cols){
+  return Array.from({length:rows}, ()=>Array(cols).fill(0));
+}
+
+function idx(r,c){ return r*COLS + c; }
+
+function clampDim(v){
+  v = Math.round(Number(v));
+  if(isNaN(v)) v = MIN_DIM;
+  return Math.min(MAX_DIM, Math.max(MIN_DIM, v));
+}
+
+function makeGrid(){
+  const gridEl = document.getElementById('grid');
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+  gridEl.style.maxWidth = Math.min(460, COLS*70) + 'px';
+  const showCoords = (ROWS*COLS) <= 64;
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.id = `cell-${r}-${c}`;
+      cell.onclick = () => onCellClick(r,c);
+      if(showCoords){
+        const coord = document.createElement('span');
+        coord.className = 'coord';
+        coord.textContent = `${r+1},${c+1}`;
+        cell.appendChild(coord);
+      }
+      gridEl.appendChild(cell);
+    }
+  }
+}
+
+function render(){
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cell = document.getElementById(`cell-${r}-${c}`);
+      if(!cell) continue;
+      cell.classList.toggle('on', board[r][c]===1);
+      cell.classList.remove('suggest');
+    }
+  }
+  if(mode==='play' && stepOrder.length && stepIndex < stepOrder.length){
+    const {r,c} = stepOrder[stepIndex];
+    const cell = document.getElementById(`cell-${r}-${c}`);
+    if(cell) cell.classList.add('suggest');
+  }
+}
+
+function onCellClick(r,c){
+  if(mode==='edit'){
+    board[r][c] = board[r][c] ? 0 : 1;
+    render();
+  } else {
+    pressCell(r,c);
+  }
+}
+
+function pressCell(r,c){
+  const coords = [[r,c],[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+  coords.forEach(([rr,cc])=>{
+    if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS){
+      board[rr][cc] = board[rr][cc] ? 0 : 1;
+    }
+  });
+  // if this press matches the current suggested step, advance the guide
+  if(stepOrder.length && stepIndex < stepOrder.length){
+    const cur = stepOrder[stepIndex];
+    if(cur.r===r && cur.c===c){
+      stepIndex++;
+      updateStepUI();
+    }
+  }
+  render();
+}
+
+function setMode(m){
+  mode = m;
+  document.getElementById('tabEdit').classList.toggle('active', m==='edit');
+  document.getElementById('tabPlay').classList.toggle('active', m==='play');
+  render();
+}
+
+function setBoardSize(r,c){
+  ROWS = clampDim(r);
+  COLS = clampDim(c);
+  document.getElementById('rowsInput').value = ROWS;
+  document.getElementById('colsInput').value = COLS;
+  board = makeEmptyBoard(ROWS, COLS);
+  solution = null;
+  stepOrder = [];
+  stepIndex = 0;
+  document.getElementById('guideSection').style.display = 'none';
+  makeGrid();
+  setMode('edit');
+  setStatus(`New ${ROWS}×${COLS} board ready. Click cells to mark them lit, then hit Solve.`);
+}
+
+function applySize(){
+  const r = document.getElementById('rowsInput').value;
+  const c = document.getElementById('colsInput').value;
+  setBoardSize(r,c);
+}
+
+function clearBoard(){
+  board = makeEmptyBoard(ROWS, COLS);
+  solution = null;
+  stepOrder = [];
+  stepIndex = 0;
+  document.getElementById('guideSection').style.display='none';
+  setStatus('Board cleared.');
+  render();
+}
+
+function setStatus(msg, isErr){
+  const box = document.getElementById('statusBox');
+  box.innerHTML = msg;
+  box.classList.toggle('err', !!isErr);
+}
+
+// ---- GF(2) Gaussian elimination solver ----
+function solveBoard(initial){
+  const size = ROWS*COLS;
+  // Build augmented matrix
+  const M = [];
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const row = new Array(size+1).fill(0);
+      const neighbors = [[r,c],[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+      neighbors.forEach(([rr,cc])=>{
+        if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS){
+          row[idx(rr,cc)] = 1;
+        }
+      });
+      row[size] = initial[r][c];
+      M.push(row);
+    }
+  }
+
+  let pivotRow = 0;
+  const pivotCols = [];
+  for(let col=0; col<size && pivotRow<size; col++){
+    let sel = -1;
+    for(let r=pivotRow; r<size; r++){
+      if(M[r][col]===1){ sel = r; break; }
+    }
+    if(sel===-1) continue;
+    [M[pivotRow], M[sel]] = [M[sel], M[pivotRow]];
+    for(let r=0;r<size;r++){
+      if(r!==pivotRow && M[r][col]===1){
+        for(let k=0;k<=size;k++){
+          M[r][k] ^= M[pivotRow][k];
+        }
+      }
+    }
+    pivotCols.push(col);
+    pivotRow++;
+  }
+
+  // consistency check
+  for(let r=pivotRow; r<size; r++){
+    let allZero = true;
+    for(let k=0;k<size;k++){ if(M[r][k]!==0){ allZero=false; break; } }
+    if(allZero && M[r][size]===1) return null; // no solution
+  }
+
+  const x = new Array(size).fill(0);
+  for(let i=0;i<pivotCols.length;i++){
+    x[pivotCols[i]] = M[i][size];
+  }
+
+  const result = [];
+  for(let r=0;r<ROWS;r++){
+    result.push(x.slice(r*COLS,(r+1)*COLS));
+  }
+  return result;
+}
+
+function solvePuzzle(){
+  const sol = solveBoard(board);
+  if(!sol){
+    setStatus('No solution exists for this exact board under the plus-toggle rule.', true);
+    document.getElementById('guideSection').style.display='none';
+    return;
+  }
+  solution = sol;
+  stepOrder = [];
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(sol[r][c]===1) stepOrder.push({r,c});
+    }
+  }
+  stepIndex = 0;
+  if(stepOrder.length === 0){
+    setStatus('This board is already solved — no clicks needed.');
+    document.getElementById('guideSection').style.display='none';
+    render();
+    return;
+  }
+  setStatus(`Solved. <b>${stepOrder.length}</b> total clicks needed. Switch to <b>Play</b> mode to practice — the glowing outline shows the next cell to press.`);
+  document.getElementById('guideSection').style.display = 'block';
+  setMode('play');
+  buildStepsList();
+  updateStepUI();
+  render();
+}
+
+function buildStepsList(){
+  const list = document.getElementById('stepsList');
+  list.innerHTML = '';
+  stepOrder.forEach((s,i)=>{
+    const div = document.createElement('div');
+    div.id = `step-row-${i}`;
+    div.innerHTML = `<span>Step ${i+1}</span><span>Row ${s.r+1}, Col ${s.c+1}</span>`;
+    list.appendChild(div);
+  });
+}
+
+function updateStepUI(){
+  document.getElementById('stepCount').textContent = `Step ${Math.min(stepIndex+1, stepOrder.length)} / ${stepOrder.length}`;
+  if(stepIndex < stepOrder.length){
+    const s = stepOrder[stepIndex];
+    document.getElementById('stepCoord').innerHTML = `Row ${s.r+1} <span class="row-r-off">/</span> Col ${s.c+1}`;
+  } else {
+    document.getElementById('stepCoord').textContent = 'All done ✓';
+  }
+  stepOrder.forEach((s,i)=>{
+    const row = document.getElementById(`step-row-${i}`);
+    if(!row) return;
+    row.classList.remove('done','current');
+    if(i < stepIndex) row.classList.add('done');
+    else if(i === stepIndex) row.classList.add('current');
+  });
+}
+
+function nextStep(){
+  if(!stepOrder.length || stepIndex>=stepOrder.length) return;
+  const {r,c} = stepOrder[stepIndex];
+  pressCell(r,c); // this also advances stepIndex + renders
+}
+
+function prevStep(){
+  if(stepIndex<=0) return;
+  stepIndex--;
+  // undo the press (pressing again toggles back, since toggle is its own inverse)
+  const {r,c} = stepOrder[stepIndex];
+  const coords = [[r,c],[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+  coords.forEach(([rr,cc])=>{
+    if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS){
+      board[rr][cc] = board[rr][cc] ? 0 : 1;
+    }
+  });
+  updateStepUI();
+  render();
+}
+
+// init
+makeGrid();
+render();
+</script>
+</body>
+</html>
