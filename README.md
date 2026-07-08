@@ -4,8 +4,7 @@ An interactive, responsive solver and trainer for the classic Lights Out puzzle 
 
 A sleek, responsive interactive solver and training simulator for the classic **Lights Out** puzzle game. Built purely with semantic HTML5, modern CSS grid/variables, and vanilla JavaScript.
 
-## 🚀 Live Demo
-👉 **[CLICK HERE TO PLAY THE LIVE DEMO]([YOUR_GITHUB_PAGES_LINK_HERE](https://sffspider.github.io/Lights-Out-Puzzle-Solver-Online/))** 
+👉 **[CLICK HERE TO PLAY THE LIVE DEMO](https://sffspider.github.io/Lights-Out-Puzzle-Solver-Online/)**
 
 ## 🧠 How It Works
 The app uses **Gaussian Elimination over the Galois Field $GF(2)$** to solve the puzzle matrix. 
